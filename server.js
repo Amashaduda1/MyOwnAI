@@ -4,11 +4,11 @@ const twilio = require("twilio");
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
-// Twilio credentials
-const accountSid = "ACc83495347b9a784aaa788615b1d36e47";
-const authToken = "7ca90395e21b3aef620dfeba4ebc1fde";
-const twilioNumber = "+12524270185";
-const userNumber = "+995591033247";
+// Twilio credentials (from environment variables)
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
+const userNumber = process.env.USER_PHONE_NUMBER; // User number should also be in env
 
 const client = twilio(accountSid, authToken);
 
@@ -17,7 +17,7 @@ function makeCall() {
     console.log("[DEBUG] Starting outbound call...");
 
     client.calls.create({
-        url: "https://maybewillwork-dawn-bird-9903.fly.dev/voice-response",
+        url: process.env.WEBHOOK_URL + "/voice-response", // Use environment variable for webhook
         to: userNumber,
         from: twilioNumber
     }).then(call => console.log(`[DEBUG] Call started: ${call.sid}`))
@@ -47,7 +47,6 @@ app.post("/process-response", (req, res) => {
     const userSpeech = req.body.SpeechResult ? req.body.SpeechResult.toLowerCase() : "";
     const twiml = new twilio.twiml.VoiceResponse();
 
-    // Log processing time
     console.time("[DEBUG] AI Response Time");
 
     if (userSpeech.includes("price") || userSpeech.includes("cost")) {
@@ -62,10 +61,8 @@ app.post("/process-response", (req, res) => {
 
     console.timeEnd("[DEBUG] AI Response Time");
 
-    // Log full response
     console.log("[DEBUG] Sending response:", twiml.toString());
 
-    // Redirect back for more questions instead of hanging up
     twiml.pause({ length: 2 });
     twiml.redirect("/voice-response");
 
@@ -73,7 +70,8 @@ app.post("/process-response", (req, res) => {
 });
 
 // Start the server
-app.listen(8080, () => {
-    console.log("[DEBUG] Server is running on port 8080");
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`[DEBUG] Server is running on port ${PORT}`);
     makeCall(); // Start the outbound call
 });
